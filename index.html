@@ -105,6 +105,28 @@
   .vbody.tib{font-family:"DejaVu Sans Mono",ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;color:#6b6358;line-height:1.5;}
   .hint{position:fixed;left:14px;bottom:14px;z-index:9;font-size:11.5px;color:var(--muted);background:rgba(255,253,248,.8);border:1px solid var(--line);border-radius:8px;padding:6px 9px;max-width:230px;}
   @media(max-width:680px){#panel{top:auto;bottom:66px;right:6px;left:6px;width:auto;max-height:56vh;} .hint{display:none;}}
+  /* ——— крестики и мобильная адаптация ——— */
+  #panel .pclose{position:absolute;top:8px;right:8px;z-index:3;width:30px;height:30px;border-radius:50%;
+    border:none;background:rgba(42,38,34,.6);color:#fff;font-size:17px;line-height:30px;text-align:center;cursor:pointer;padding:0;}
+  #panel .pclose:hover{background:rgba(42,38,34,.85);}
+  #sbtoggle{display:none;position:fixed;top:8px;left:8px;z-index:12;font-family:inherit;font-size:13px;
+    padding:7px 11px;border:1px solid var(--line);border-radius:9px;background:rgba(255,253,248,.97);color:var(--maroon);
+    box-shadow:0 3px 12px rgba(0,0,0,.12);cursor:pointer;}
+  .sb-close{display:none;}
+  @media(max-width:680px){
+    header{padding:8px 12px 4px;} header h1{font-size:14px;line-height:1.2;} header .sub{display:none;}
+    #sbtoggle{display:block;}
+    #sidebar{display:none;left:8px;right:8px;top:48px;width:auto;max-width:none;max-height:62vh;overflow:auto;}
+    #sidebar.open{display:block;}
+    .sb-close{display:inline-block;float:right;border:none;background:transparent;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;padding:0 2px;}
+    #sb-list{display:block;} .sbitem{width:100%;font-size:13px;margin-bottom:3px;}
+    .toolbar{left:6px;right:6px;bottom:8px;transform:none;flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;
+      gap:6px;padding:6px 8px;-webkit-overflow-scrolling:touch;}
+    .toolbar button{flex:0 0 auto;font-size:12px;padding:7px 10px;white-space:nowrap;}
+    #panel{top:auto;bottom:60px;right:6px;left:6px;width:auto;max-width:none;max-height:52vh;}
+    #palette{bottom:56px;left:6px;right:6px;transform:none;}
+    .hint{display:none;}
+  }
 </style></head>
 <body>
 <div id="gate"><div class="box">
@@ -121,8 +143,9 @@
   <h1>«Море мудрости» — Объяснение «Мудрости» Арьи Нагарджуны</h1>
   <div class="sub">Чже Цонгкапа · перевод Геше Майкла Роуча и Марии Мёртл · карта построена по документу</div>
 </header>
+<button id="sbtoggle">☰ Разделы</button>
 <div id="sidebar">
-  <div class="sb-h">Разделы документа</div>
+  <div class="sb-h">Разделы документа<button class="sb-close" id="sb-close" title="Закрыть">×</button></div>
   <div id="sb-list"></div>
   <button id="sb-all" class="sb-all">↺ Показать все</button>
   <a class="sb-pdf" href="more-mudrosti-original.pdf" target="_blank" rel="noopener">📄 Открыть оригинал PDF</a>
@@ -146,6 +169,7 @@
   <button class="pbtn" id="donedraw">Готово</button>
 </div>
 <div id="panel">
+  <button class="pclose" id="p-close" title="Закрыть">×</button>
   <img id="p-img" alt="" style="display:none">
   <div class="pad">
     <div class="pre" id="p-pre">Раздел</div>
@@ -195,6 +219,8 @@ function prep(n,d,p,c,bi){n.id=uid++;n.depth=d;n.parent=p;n.collapsed=false;
   if(n.children)n.children.forEach(x=>prep(x,d+1,n,n.color,n.bi));}
 prep(ROOT,0,null,"#7a2e2e",-1);
 let activeBranch=null;
+const HOVER=!(window.matchMedia&&matchMedia('(hover:none)').matches);
+const isMobile=()=>innerWidth<=680;
 const NS="http://www.w3.org/2000/svg",SVG=document.getElementById('svg'),gL=document.getElementById('links'),gN=document.getElementById('nodes');
 const RADII=[0,235,470]; function radiusFor(d){return d<RADII.length?RADII[d]:RADII[RADII.length-1]+(d-RADII.length+1)*180;}
 function leaves(n){if(n.collapsed||!n.children||!n.children.length)return 1;let s=0;n.children.forEach(c=>s+=leaves(c));return s;}
@@ -233,7 +259,7 @@ function render(){assign(ROOT,-Math.PI/2,-Math.PI/2+2*Math.PI);const {nodes,link
     g.appendChild(txt);
     const hit=(e)=>{e.stopPropagation();showPanel(n);if(kids){n.collapsed=!n.collapsed;render();}};
     circ.addEventListener("click",hit);
-    g.addEventListener("mouseenter",()=>{showPanel(n);circ.setAttribute("r",rad+2.5);});
+    g.addEventListener("mouseenter",()=>{if(HOVER)showPanel(n);circ.setAttribute("r",rad+2.5);});
     g.addEventListener("mouseleave",()=>{circ.setAttribute("r",rad);});
     g.style.opacity=(activeBranch===null||n.depth===0||n.bi===activeBranch)?1:0.13;g.style.transition='opacity .25s';
     gN.appendChild(g);});}
@@ -284,8 +310,12 @@ function focusBranch(i){const ns=branchNodes(i);if(!ns.length)return;
   let k=Math.min(r.width/(bX-aX),r.height/(bY-aY));k=Math.max(0.28,Math.min(k,1.0));
   const cx=(aX+bX)/2,cy=(aY+bY)/2;animateTo({k:k,x:r.width/2-cx*k,y:r.height/2-cy*k});}
 function fitTarget(){const r=SVG.getBoundingClientRect();return {k:Math.max(0.2,Math.min(Math.min(r.width,r.height)/1500,0.62)),x:r.width/2,y:r.height/2+12};}
-function toggleFocus(i){if(activeBranch===i){clearFocus();return;}activeBranch=i;ROOT.children[i].collapsed=false;render();setActive();focusBranch(i);}
-function clearFocus(){activeBranch=null;render();setActive();animateTo(fitTarget());}
+function sbClose(){if(isMobile())document.getElementById('sidebar').classList.remove('open');}
+function toggleFocus(i){if(activeBranch===i){clearFocus();return;}activeBranch=i;ROOT.children[i].collapsed=false;render();setActive();focusBranch(i);sbClose();}
+function clearFocus(){activeBranch=null;render();setActive();animateTo(fitTarget());sbClose();}
+document.getElementById('p-close').onclick=(e)=>{e.stopPropagation();panel.classList.remove('show');};
+document.getElementById('sbtoggle').onclick=()=>document.getElementById('sidebar').classList.toggle('open');
+document.getElementById('sb-close').onclick=()=>document.getElementById('sidebar').classList.remove('open');
 // ===== перемещаемые заметки =====
 const NL=document.getElementById('notesLayer');
 let NOTES=[]; try{NOTES=JSON.parse(localStorage.getItem('more_notes')||'[]');}catch(e){NOTES=[];}
