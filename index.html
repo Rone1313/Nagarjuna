@@ -281,11 +281,23 @@ function applyTF(){document.getElementById('view').setAttribute("transform",`tra
 function fit(){const r=SVG.getBoundingClientRect();tf.k=Math.max(0.2,Math.min(Math.min(r.width,r.height)/1500,0.62));tf.x=r.width/2;tf.y=r.height/2+12;applyTF();}
 function resize(){SVG.setAttribute("viewBox",`0 0 ${SVG.clientWidth} ${SVG.clientHeight}`);}
 window.addEventListener("resize",resize);
-let drag=null;
-SVG.addEventListener("pointerdown",e=>{drag={x:e.clientX,y:e.clientY,tx:tf.x,ty:tf.y};SVG.classList.add("grabbing");SVG.setPointerCapture(e.pointerId);});
-SVG.addEventListener("pointermove",e=>{if(!drag)return;tf.x=drag.tx+(e.clientX-drag.x);tf.y=drag.ty+(e.clientY-drag.y);applyTF();});
-SVG.addEventListener("pointerup",()=>{drag=null;SVG.classList.remove("grabbing");});
-SVG.addEventListener("pointercancel",()=>{drag=null;SVG.classList.remove("grabbing");});
+let drag=null;const pointers=new Map();let pinchLast=null;
+const twoPts=()=>[...pointers.values()].slice(0,2);
+SVG.addEventListener("pointerdown",e=>{pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});try{SVG.setPointerCapture(e.pointerId);}catch(_){}
+  if(pointers.size===1){drag={x:e.clientX,y:e.clientY,tx:tf.x,ty:tf.y};SVG.classList.add("grabbing");}else{drag=null;pinchLast=null;}});
+SVG.addEventListener("pointermove",e=>{if(!pointers.has(e.pointerId))return;pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pointers.size>=2){const a=twoPts(),p=a[0],q=a[1],r=SVG.getBoundingClientRect();
+    const d=Math.hypot(p.x-q.x,p.y-q.y),mx=(p.x+q.x)/2-r.left,my=(p.y+q.y)/2-r.top;
+    if(pinchLast){const f=d/pinchLast.d,nk=Math.max(0.06,Math.min(5,tf.k*f));
+      tf.x=mx-(mx-tf.x)*(nk/tf.k);tf.y=my-(my-tf.y)*(nk/tf.k);tf.k=nk;
+      tf.x+=mx-pinchLast.mx;tf.y+=my-pinchLast.my;applyTF();}
+    pinchLast={d,mx,my};}
+  else if(drag){tf.x=drag.tx+(e.clientX-drag.x);tf.y=drag.ty+(e.clientY-drag.y);applyTF();}});
+function ptUp(e){pointers.delete(e.pointerId);if(pointers.size<2)pinchLast=null;
+  if(pointers.size===1){const p=twoPts()[0];drag={x:p.x,y:p.y,tx:tf.x,ty:tf.y};}
+  else if(pointers.size===0){drag=null;SVG.classList.remove("grabbing");}}
+SVG.addEventListener("pointerup",ptUp);
+SVG.addEventListener("pointercancel",ptUp);
 SVG.addEventListener("wheel",e=>{e.preventDefault();const r=SVG.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top,f=e.deltaY<0?1.12:1/1.12,nk=Math.max(0.08,Math.min(4,tf.k*f));tf.x=mx-(mx-tf.x)*(nk/tf.k);tf.y=my-(my-tf.y)*(nk/tf.k);tf.k=nk;applyTF();},{passive:false});
 SVG.addEventListener("click",()=>panel.classList.remove("show"));
 function setAll(s){(function w(n){if(n.children&&n.children.length){if(n.depth>=1)n.collapsed=s;n.children.forEach(w);}})(ROOT);ROOT.collapsed=false;render();}
